@@ -95,7 +95,7 @@
         <!-- Search -->
         <div class="card-metric p-3 mb-4">
             <div class="row g-3">
-                <div class="col-lg-4 col-md-6">
+                <div class="col-lg-3 col-md-6">
                     <div class="input-group">
                         <span class="input-group-text bg-light border-secondary-subtle text-secondary"
                             style="border: 1px solid var(--border-color); border-right: none;">
@@ -105,7 +105,7 @@
                             placeholder="Search by name or skills..." style="border-left: none; font-size: 0.9rem;">
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-6">
+                <div class="col-lg-2 col-md-6">
                     <select class="form-select form-custom-control" id="filter_fit" style="font-size: 0.9rem;">
                         <option value="ALL">All Categories</option>
                         <option value="Strong Fit">Strong Fits Only</option>
@@ -126,6 +126,12 @@
                     <button class="btn btn-outline-secondary w-100 rounded-pill" id="btn_clear_filters"
                         style="font-size: 0.9rem;">
                         <i class="fa-solid fa-filter-circle-xmark me-2"></i>Reset
+                    </button>
+                </div>
+                <div class="col-lg-2 col-md-6">
+                    <button class="btn btn-success w-100 rounded-pill" id="btn_download_csv"
+                        style="font-size: 0.9rem; background-color: #10b981; border: none;">
+                        <i class="fa-solid fa-file-csv me-2"></i>Download CSV
                     </button>
                 </div>
             </div>
@@ -163,13 +169,14 @@
             </div>
 
             <!-- Comparison -->
-            <div class="col-xl-3 col-lg-4">
-                <div class="card-metric h-100" style="min-height: 400px;">
+            <div class="col-xl-3 col-lg-4 d-flex flex-column gap-4">
+                <!-- Comparison Panel -->
+                <div class="card-metric" style="min-height: 380px;">
                     <h4 class="text-dark h5 mb-3 fw-bold"><i class="fa-solid fa-columns me-2 text-primary"></i>Compare
                         Candidates</h4>
                     <p class="text-secondary small">Compare technical fits side-by-side. Select exactly <strong>two
                             (2)</strong> candidates using the checkboxes in the ranking table to enable comparison.</p>
-
+ 
                     <div id="compare_selection_panel" class="py-3">
                         <div class="text-secondary text-center py-5 px-3 small border rounded"
                             style="border-style: dashed !important; border-color: #cbd5e1 !important; background-color: #f8fafc;">
@@ -179,11 +186,19 @@
                                 start side-by-side comparison.</div>
                         </div>
                     </div>
-
+ 
                     <button class="btn btn-primary w-100 text-white fw-bold rounded-pill d-none" id="btn_compare_action"
                         style="background-color: var(--color-primary); border: none;">
                         <i class="fa-solid fa-balance-scale me-2"></i>Compare Selection
                     </button>
+                </div>
+
+                <!-- Basic Analytics Chart Card -->
+                <div class="card-metric">
+                    <h4 class="text-dark h5 mb-3 fw-bold"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Fit Distribution</h4>
+                    <div style="position: relative; height: 220px; width: 100%;">
+                        <canvas id="dashboardAnalyticsChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -389,12 +404,15 @@
 
     <!-- Bootstrap JS Bundle CDN -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <!-- UI State & Dynamic Logic -->
     <script>
         // Global state
         let candidatesData = [];
         let selectedForComparison = [];
+        let dashboardChart = null;
 
         // Selectors
         const jobSelect = document.getElementById('dashboard_job_select');
@@ -403,6 +421,7 @@
         const sortBy = document.getElementById('sort_by');
         const tableBody = document.getElementById('candidates_table_body');
         const clearBtn = document.getElementById('btn_clear_filters');
+        const btnDownloadCsv = document.getElementById('btn_download_csv');
 
         // Modal Selectors
         const detailModalEl = document.getElementById('detailModal');
@@ -426,6 +445,7 @@
                     candidatesData = data;
                     applyFiltersAndDraw();
                     updateMetrics();
+                    updateDashboardChart(data);
                 })
                 .catch(err => {
                     console.error(err);
@@ -967,6 +987,97 @@
             sortBy.value = 'score_desc';
             applyFiltersAndDraw();
         });
+
+        // Download CSV file with current active filters
+        btnDownloadCsv.addEventListener('click', function () {
+            const jobId = jobSelect.value;
+            if (!jobId) {
+                alert("Please select a job target first.");
+                return;
+            }
+            const fit = filterFit.value;
+            const search = searchInput.value;
+            window.location.href = `/download-csv?job_id=${jobId}&fit=${fit}&search=${encodeURIComponent(search)}`;
+        });
+
+        // Initialize/update dashboard donut chart representing fit distribution
+        function updateDashboardChart(candidates) {
+            const chartCanvas = document.getElementById('dashboardAnalyticsChart');
+            if (!chartCanvas) return;
+            const ctx = chartCanvas.getContext('2d');
+            
+            // Count recommendations
+            let strongCount = 0;
+            let moderateCount = 0;
+            let weakCount = 0;
+            
+            candidates.forEach(cand => {
+                if (cand.recommendation === 'Strong Fit') strongCount++;
+                else if (cand.recommendation === 'Moderate Fit') moderateCount++;
+                else if (cand.recommendation === 'Weak Fit') weakCount++;
+            });
+            
+            const data = {
+                labels: ['Strong Fit', 'Moderate Fit', 'Weak Fit'],
+                datasets: [{
+                    data: [strongCount, moderateCount, weakCount],
+                    backgroundColor: [
+                        '#10b981', // Emerald for Strong Fit
+                        '#3b82f6', // Blue for Moderate Fit
+                        '#f59e0b'  // Amber for Weak Fit
+                    ],
+                    borderWidth: 1,
+                    borderColor: '#ffffff'
+                }]
+            };
+            
+            const config = {
+                type: 'doughnut',
+                data: data,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#475569',
+                                font: {
+                                    family: 'Outfit',
+                                    size: 11
+                                },
+                                padding: 12
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const val = context.raw;
+                                    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                                    return ` ${context.label}: ${val} (${pct}%)`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            };
+            
+            if (dashboardChart) {
+                dashboardChart.destroy();
+            }
+            
+            // Handle zero state
+            if (candidates.length === 0) {
+                data.datasets[0].data = [1];
+                data.datasets[0].backgroundColor = ['#e2e8f0'];
+                data.labels = ['No Data Available'];
+                config.options.plugins.tooltip.enabled = false;
+            }
+            
+            dashboardChart = new Chart(ctx, config);
+        }
 
         // Delete Candidate from Database & File System
         window.deleteCandidate = function (candId) {

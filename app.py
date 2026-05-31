@@ -2,6 +2,8 @@ import os
 import re
 import json
 import sqlite3
+import csv
+import io
 from functools import wraps
 from flask import (
     Flask, render_template, request, jsonify,
@@ -551,6 +553,105 @@ def clear_job_data(job_id):
     conn.commit()
     conn.close()
     return jsonify({"success": True})
+
+
+# ---------------------------------------------------------------
+# API: Download Candidates CSV
+# ---------------------------------------------------------------
+@app.route("/download-csv")
+@login_required
+def download_csv():
+    job_id = request.args.get("job_id", type=int)
+    fit = request.args.get("fit", type=str)
+    search = request.args.get("search", type=str, default="")
+
+    if not job_id:
+        return jsonify({"error": "Missing job_id parameter"}), 400
+
+    conn = get_db_connection()
+    job = conn.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    if not job:
+        conn.close()
+        return jsonify({"error": "Job profile not found"}), 404
+
+    # Fetch candidates
+    candidates = conn.execute(
+        "SELECT * FROM candidates WHERE job_id = ? ORDER BY score DESC",
+        (job_id,)
+    ).fetchall()
+    conn.close()
+
+    # Filter candidates in Python to match frontend logic
+    filtered_candidates = []
+    search_lower = search.lower().strip()
+    for cand in candidates:
+        cand_dict = dict(cand)
+        
+        # Search filter
+        matches_search = True
+        if search_lower:
+            name = (cand_dict["name"] or "").lower()
+            filename = (cand_dict["filename"] or "").lower()
+            skills = (cand_dict["skills"] or "").lower()
+            matches_search = (search_lower in name or 
+                              search_lower in filename or 
+                              search_lower in skills)
+        
+        # Fit filter
+        matches_fit = True
+        if fit and fit != "ALL":
+            if fit == "FRAUD":
+                parsed_flags = json.loads(cand_dict["fraud_flags"] or "[]")
+                matches_fit = len(parsed_flags) > 0
+            else:
+                matches_fit = cand_dict["recommendation"] == fit
+                
+        if matches_search and matches_fit:
+            filtered_candidates.append(cand_dict)
+
+    # Generate CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow([
+        "Candidate Name", "Email", "Phone", "Match Score", "Recommendation", 
+        "Skills", "Experience", "Education", "Fraud Flags", "Filename", "Upload Date"
+    ])
+    
+    for cand in filtered_candidates:
+        skills_list = json.loads(cand["skills"] or "[]")
+        skills_str = ", ".join(skills_list)
+        
+        flags_list = json.loads(cand["fraud_flags"] or "[]")
+        flags_str = ", ".join(flags_list)
+        
+        writer.writerow([
+            cand["name"] or "N/A",
+            cand["email"] or "N/A",
+            cand["phone"] or "N/A",
+            f"{cand['score']}%" if cand["score"] is not None else "0%",
+            cand["recommendation"] or "N/A",
+            skills_str,
+            cand["experience"] or "",
+            cand["education"] or "",
+            flags_str,
+            cand["filename"],
+            cand["upload_date"]
+        ])
+        
+    csv_data = output.getvalue()
+    output.close()
+    
+    # Format filename cleanly
+    job_title_slug = re.sub(r'[^a-zA-Z0-9]', '_', job['title'].lower())
+    fit_slug = re.sub(r'[^a-zA-Z0-9]', '_', fit.lower()) if fit else "all"
+    filename = f"candidates_{job_title_slug}_{fit_slug}.csv"
+    
+    response = make_response(csv_data)
+    response.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    response.headers["Content-type"] = "text/csv"
+    return response
 
 
 # ---------------------------------------------------------------
