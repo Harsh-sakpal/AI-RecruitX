@@ -10,16 +10,16 @@ The system also provides features like recruiter login, single and bulk resume u
 
 ## Features
 
-* Resume PDF parsing using pdfplumber
-* Resume matching using TF-IDF and Cosine Similarity
-* Candidate ranking system
-* Skill gap analysis
-* Basic resume flags and keyword stuffing detection
-* Recruiter dashboard
-* Single and bulk resume upload
-* Compare candidates
-* SQLite database integration
-* Login-based recruiter access
+- Resume PDF parsing using pdfplumber
+- Resume matching using TF-IDF and Cosine Similarity
+- Candidate ranking system
+- Skill gap analysis
+- Basic resume flags and keyword stuffing detection
+- Recruiter dashboard
+- Single and bulk resume upload
+- Compare candidates
+- SQLite database integration
+- Login-based recruiter access
 
 ---
 
@@ -27,29 +27,29 @@ The system also provides features like recruiter login, single and bulk resume u
 
 ### Backend
 
-* Python
-* Flask
+- Python
+- Flask
 
 ### Database
 
-* SQLite
+- SQLite
 
 ### AI / NLP
 
-* Scikit-Learn
-* TF-IDF Vectorizer
-* Cosine Similarity
+- Scikit-Learn
+- TF-IDF Vectorizer
+- Cosine Similarity
 
 ### Frontend
 
-* HTML5
-* CSS3
-* JavaScript
-* Bootstrap 5
+- HTML5
+- CSS3
+- JavaScript
+- Bootstrap 5
 
 ### PDF Processing
 
-* pdfplumber
+- pdfplumber
 
 ---
 
@@ -182,10 +182,10 @@ Higher similarity means the resume is more relevant to the given job role.
 
 The system includes simple resume flag checks such as:
 
-* Keyword stuffing detection
-* Duplicate resume checking
-* Invalid future year detection
-* High keyword density warnings
+- Keyword stuffing detection
+- Duplicate resume checking
+- Invalid future year detection
+- High keyword density warnings
 
 ---
 
@@ -193,18 +193,19 @@ The system includes simple resume flag checks such as:
 
 The project structure is compatible with:
 
-* AWS EC2 deployment
-* Gunicorn server deployment
-* Render deployment
+## Deployment
+
+- AWS EC2 Deployment
+- Render HTTPS Hosting
+- Gunicorn Production Server
 
 Future improvements may include AWS S3 storage and PostgreSQL integration.
 
 ---
 
 ## Project Developed By
-
 ### Team AI RecruitX
 
-* Harsh Sakpal
-* Harshada Pawar
-* Sakshi Raul
+- Harsh Sakpal
+- Harshada Pawar
+- Sakshi Raul
