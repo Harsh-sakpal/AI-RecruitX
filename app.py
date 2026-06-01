@@ -18,13 +18,7 @@ from utils.jwt_auth import generate_jwt, verify_jwt
 
 app = Flask(__name__)
 
-# ---------------------------------------------------------------
-# Configuration
-# SECRET_KEY: loaded from environment variable for AWS security.
-# Falls back to a hardcoded dev key so local testing still works.
-# On AWS — set this as an environment variable:
-#   export SECRET_KEY="some-long-random-string"
-# ---------------------------------------------------------------
+
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "ai_recruitx_secret_2026_dev")
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
@@ -35,10 +29,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# ---------------------------------------------------------------
-# Shared skill-name formatter (used in multiple routes — defined
-# once here to avoid copy-paste repetition across the file).
-# ---------------------------------------------------------------
+
 def format_skill_name(skill: str) -> str:
     """Returns a nicely formatted display name for a raw skill string."""
     special = {"c++": "C++", "c#": "C#", "node.js": "Node.js",
@@ -46,9 +37,6 @@ def format_skill_name(skill: str) -> str:
     return special.get(skill, skill.title())
 
 
-# ---------------------------------------------------------------
-# SQLite Database Helpers
-# ---------------------------------------------------------------
 def get_db_connection():
     """Opens a SQLite connection with Row factory so columns are accessible by name."""
     conn = sqlite3.connect(DATABASE)
@@ -117,11 +105,7 @@ def init_db():
 init_db()
 
 
-# ---------------------------------------------------------------
-# JWT-based Auth Middleware
-# Reads the 'auth_token' cookie, verifies the JWT, and blocks
-# the request if the token is missing, expired, or tampered with.
-# ---------------------------------------------------------------
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -140,9 +124,6 @@ def login_required(f):
     return decorated
 
 
-# ---------------------------------------------------------------
-# Shared helper: compute missing skills for a candidate vs a job
-# ---------------------------------------------------------------
 def compute_missing_skills(matched_skills: list, job_description: str) -> list:
     """
     Returns a list of skills required by the job but absent in the candidate's resume.
@@ -156,9 +137,6 @@ def compute_missing_skills(matched_skills: list, job_description: str) -> list:
     return list(set(job_skills) - set(matched_skills))
 
 
-# ---------------------------------------------------------------
-# Authentication Routes
-# ---------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     # Already logged in — redirect straight to dashboard
@@ -208,9 +186,7 @@ def home():
     return redirect(url_for("login"))
 
 
-# ---------------------------------------------------------------
-# Page Routes (render HTML templates)
-# ---------------------------------------------------------------
+
 @app.route("/dashboard")
 @login_required
 def dashboard():
@@ -232,9 +208,6 @@ def upload():
     return render_template("upload.html", jobs=jobs)
 
 
-# ---------------------------------------------------------------
-# API: Create Job Profile
-# ---------------------------------------------------------------
 @app.route("/create-job", methods=["POST"])
 @login_required
 def create_job():
@@ -254,10 +227,6 @@ def create_job():
     return jsonify({"success": True, "job_id": job_id})
 
 
-# ---------------------------------------------------------------
-# Shared resume processing logic (avoids duplication between
-# single-upload and bulk-upload routes)
-# ---------------------------------------------------------------
 def _process_single_resume(file_path, filename, job_id, job_description, conn):
     """
     Parses and scores one resume. Returns a dict with results.
@@ -276,7 +245,8 @@ def _process_single_resume(file_path, filename, job_id, job_description, conn):
     parsed = parse_resume_data(resume_text, filename)
 
     # 3. Calculate match score + skill gaps + resume flags
-    results = calculate_match_score(resume_text, job_description)
+    #    Pass pdf_path so hidden text detection can scan raw PDF chars
+    results = calculate_match_score(resume_text, job_description, pdf_path=file_path)
 
     # 4. Duplicate check (by email OR content hash)
     if parsed["email"] != "N/A":
@@ -318,9 +288,7 @@ def _process_single_resume(file_path, filename, job_id, job_description, conn):
     }
 
 
-# ---------------------------------------------------------------
-# API: Upload Single Resume
-# ---------------------------------------------------------------
+
 @app.route("/upload-resume", methods=["POST"])
 @login_required
 def upload_resume():
@@ -365,9 +333,6 @@ def upload_resume():
     return redirect(url_for("dashboard", job_id=job_id))
 
 
-# ---------------------------------------------------------------
-# API: Bulk Upload (sequential, one file at a time)
-# ---------------------------------------------------------------
 @app.route("/bulk-upload", methods=["POST"])
 @login_required
 def bulk_upload():
@@ -413,9 +378,6 @@ def bulk_upload():
     return jsonify({"success": True, "processed_count": len(results), "files": results})
 
 
-# ---------------------------------------------------------------
-# API: Get Ranked Candidates for a Job
-# ---------------------------------------------------------------
 @app.route("/ranked-candidates")
 @login_required
 def ranked_candidates():
@@ -446,9 +408,7 @@ def ranked_candidates():
     return jsonify(result)
 
 
-# ---------------------------------------------------------------
-# API: Get Single Candidate Details
-# ---------------------------------------------------------------
+
 @app.route("/candidate/<int:candidate_id>")
 @login_required
 def get_candidate(candidate_id):
@@ -470,9 +430,6 @@ def get_candidate(candidate_id):
     return jsonify(cand_dict)
 
 
-# ---------------------------------------------------------------
-# API: Analytics / KPI Stats
-# ---------------------------------------------------------------
 @app.route("/analytics")
 @login_required
 def analytics():
@@ -503,9 +460,6 @@ def analytics():
     })
 
 
-# ---------------------------------------------------------------
-# API: Delete a Single Candidate
-# ---------------------------------------------------------------
 @app.route("/delete-candidate/<int:candidate_id>", methods=["POST"])
 @login_required
 def delete_candidate(candidate_id):
@@ -531,9 +485,6 @@ def delete_candidate(candidate_id):
     return jsonify({"success": True})
 
 
-# ---------------------------------------------------------------
-# API: Clear All Candidates for a Job
-# ---------------------------------------------------------------
 @app.route("/clear-job-data/<int:job_id>", methods=["POST"])
 @login_required
 def clear_job_data(job_id):
@@ -555,9 +506,7 @@ def clear_job_data(job_id):
     return jsonify({"success": True})
 
 
-# ---------------------------------------------------------------
-# API: Download Candidates CSV
-# ---------------------------------------------------------------
+
 @app.route("/download-csv")
 @login_required
 def download_csv():
@@ -654,11 +603,6 @@ def download_csv():
     return response
 
 
-# ---------------------------------------------------------------
-# Run the app
-# debug=False is important for AWS production — never expose the
-# debug reloader or interactive debugger to the internet.
-# ---------------------------------------------------------------
 if __name__ == "__main__":
     debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
     app.run(debug=debug_mode, host="0.0.0.0", port=5000)
