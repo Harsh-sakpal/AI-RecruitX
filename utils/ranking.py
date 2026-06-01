@@ -5,16 +5,12 @@ import hashlib
 from utils.parser import SKILLS_VOCABULARY
 
 def get_text_hash(text):
-    """
-    Generates an MD5 hash of the parsed text to identify duplicates.
-    """
+    # To identify duplicates.
     cleaned = re.sub(r'\s+', '', text).lower()
     return hashlib.md5(cleaned.encode('utf-8')).hexdigest()
 
 def detect_anomalies(text, extracted_skills):
-    """
-    Performs keyword stuffing, text length, and formatting checks on resume text.
-    """
+    # Performs keyword stuffing, text length, and formatting
     flags = []
     text_lower = text.lower()
     words = text_lower.split()
@@ -23,7 +19,7 @@ def detect_anomalies(text, extracted_skills):
     if len(words) < 15:
         flags.append("Suspiciously short content (< 15 words)")
         
-    # 2. Keyword Stuffing Check
+    # 2. Keyword Stuffing(repetation) Check
     for skill in SKILLS_VOCABULARY:
         if '+' in skill or '.' in skill:
             pattern = re.escape(skill)
@@ -35,13 +31,12 @@ def detect_anomalies(text, extracted_skills):
         if len(matches) > 6:
             flags.append(f"Keyword stuffing: '{skill.upper()}' repeated {len(matches)} times")
             
-    # 3. Future Year Check
-    # Looks for year boundaries like 2027 to 2099
+    # 3. Future Year Check (year>2027 to 2099)
     future_years = re.findall(r'\b(202[7-9]|20[3-9]\d)\b', text)
     if future_years:
         flags.append(f"Inconsistent dates: Future reference year '{future_years[0]}' detected")
         
-    # 4. Dense Technical Terms (Resume Flags check)
+    # 4. Resume Flags check many skills filled
     if len(words) > 0:
         term_count = 0
         for skill in SKILLS_VOCABULARY:
@@ -69,7 +64,7 @@ def calculate_match_score(resume_text, job_description):
     resume_text_clean = resume_text.lower()
     job_desc_clean = job_description.lower()
     
-    # Ensure documents have content before processing
+    # Ensure documents have content 
     if not resume_text_clean.strip() or not job_desc_clean.strip():
         return {
             "score": 0.0,
@@ -100,7 +95,7 @@ def calculate_match_score(resume_text, job_description):
     skill_score = (len(matched_skills) / len(job_skills) * 100.0) if len(job_skills) > 0 else 100.0
 
     # 2. Experience Relevance (25% Weight)
-    exp_score = 40.0  # Base score for having resume text
+    exp_score = 40.0  
     exp_matches = re.findall(r'\b(\d{1,2})\s*(?:\+|-|\bto\b|\band\b)?\s*\d{0,2}\s*(?:years?|yrs?)\b', resume_text_clean)
     if exp_matches:
         years = max([int(y) for y in exp_matches if int(y) < 30])
@@ -170,7 +165,7 @@ def calculate_match_score(resume_text, job_description):
     else:
         recommendation = "Weak Fit"
         
-    # Format skills for visual representation in UI
+    # visual representation in UI
     def clean_display_name(s):
         if s == 'c++': return 'C++'
         if s == 'c#': return 'C#'
@@ -183,7 +178,7 @@ def calculate_match_score(resume_text, job_description):
     missing_formatted = [clean_display_name(x) for x in missing_skills]
     resume_formatted = [clean_display_name(x) for x in resume_skills]
     
-    # 3. Run Fraud & Anomaly Audit
+    # Run Fraud flags and detect anomalies such as same content and repetation
     fraud_flags = detect_anomalies(resume_text, resume_skills)
     text_hash = get_text_hash(resume_text)
     

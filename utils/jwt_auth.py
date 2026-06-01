@@ -1,23 +1,3 @@
-"""
-Simple JWT (JSON Web Token) helper for AI RecruitX.
-
-Built using only Python standard library:
-  - hmac       : creates the cryptographic signature
-  - hashlib    : SHA-256 hashing algorithm
-  - base64     : Base64Url encoding/decoding
-  - json       : payload serialisation
-  - time       : expiry timestamp
-
-How a JWT works (explain in viva):
-  A JWT has three parts separated by dots:
-    HEADER.PAYLOAD.SIGNATURE
-
-  - HEADER   : tells which algorithm is used (HS256)
-  - PAYLOAD  : the actual data (username, expiry time)
-  - SIGNATURE: HMAC-SHA256(HEADER + "." + PAYLOAD, secret_key)
-               proves the token has not been tampered with
-"""
-
 import hmac
 import hashlib
 import base64
@@ -40,17 +20,7 @@ def _base64url_decode(text: str) -> bytes:
 
 
 def generate_jwt(username: str, secret_key: str, expiry_hours: int = 2) -> str:
-    """
-    Creates a signed JWT token for the given username.
 
-    Args:
-        username   : The recruiter's username to embed in the token.
-        secret_key : The app's secret key used to sign the token.
-        expiry_hours: How many hours until the token expires (default 2).
-
-    Returns:
-        A JWT string in format: header.payload.signature
-    """
     # Header: tells decoder which algorithm we used
     header = {"alg": "HS256", "typ": "JWT"}
 
@@ -82,17 +52,7 @@ def generate_jwt(username: str, secret_key: str, expiry_hours: int = 2) -> str:
 
 
 def verify_jwt(token: str, secret_key: str):
-    """
-    Verifies a JWT token and returns the payload if valid.
 
-    Args:
-        token      : The JWT string received from the browser cookie.
-        secret_key : The same secret key used to sign the token.
-
-    Returns:
-        dict  : The decoded payload if the token is valid and not expired.
-        None  : If the token is invalid, tampered, or expired.
-    """
     try:
         # Split the token into its three parts
         parts = token.split(".")
