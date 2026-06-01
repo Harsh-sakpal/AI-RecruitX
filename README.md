@@ -196,6 +196,7 @@ The project structure is compatible with:
 * AWS EC2 deployment
 * Gunicorn server deployment
 * Render deployment
+- Testing branch and Main branch different deployment deployment
 
 Future improvements may include AWS S3 storage and PostgreSQL integration.
 
