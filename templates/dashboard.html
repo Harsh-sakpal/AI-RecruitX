@@ -36,6 +36,11 @@
     </nav>
 
     <!-- Main Container -->
+    <!-- Server Offline Banner (hidden by default) -->
+    <div id="server_offline_banner" style="display:none; position:fixed; top:0; left:0; width:100%; z-index:9999; background:#dc2626; color:#fff; text-align:center; padding:10px 20px; font-size:0.9rem; font-weight:600;">
+        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+        Server connection lost. Your data is safely stored in the database. <button onclick="location.reload()" style="margin-left:12px; background:white; color:#dc2626; border:none; border-radius:20px; padding:3px 14px; font-weight:700; cursor:pointer;">Reload Page</button>
+    </div>
     <div class="container-fluid px-md-5 py-4">
         <!-- Header -->
         <div class="row align-items-center mb-4">
@@ -427,7 +432,17 @@
         const detailModalEl = document.getElementById('detailModal');
         const detailModal = new bootstrap.Modal(detailModalEl);
 
-        // Fetch Ranked candidates for a job
+        // Show/hide the server offline banner
+        function showOfflineBanner() {
+            document.getElementById('server_offline_banner').style.display = 'block';
+            document.body.style.paddingTop = '44px';
+        }
+        function hideOfflineBanner() {
+            document.getElementById('server_offline_banner').style.display = 'none';
+            document.body.style.paddingTop = '';
+        }
+
+        // Fetch Ranked candidates for a job (with retry + error proof handling)
         function fetchCandidates() {
             const jobId = jobSelect.value;
             if (!jobId) {
@@ -435,21 +450,45 @@
                 return;
             }
 
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-secondary"><div class="spinner-border text-primary mb-2" role="status"></div><div>Analyzing applicant data...</div></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-secondary"><div class="spinner-border text-primary mb-2" role="status"></div><div>Loading candidates from database...</div></td></tr>`;
             selectedForComparison = [];
             updateComparisonPanel();
 
             fetch(`/ranked-candidates?job_id=${jobId}`)
-                .then(res => res.json())
+                .then(res => {
+                    if (!res.ok) throw new Error(`Server responded with status ${res.status}`);
+                    return res.json();
+                })
                 .then(data => {
-                    candidatesData = data;
+                    hideOfflineBanner();
+                    // Handle API error objects
+                    if (data.error) {
+                        tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="fa-solid fa-circle-exclamation me-2"></i>${data.error}</td></tr>`;
+                        return;
+                    }
+                    candidatesData = Array.isArray(data) ? data : [];
                     applyFiltersAndDraw();
                     updateMetrics();
-                    updateDashboardChart(data);
+                    updateDashboardChart(candidatesData);
                 })
                 .catch(err => {
-                    console.error(err);
-                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger"><i class="fa-solid fa-circle-exclamation me-2"></i>Error loading candidate ranks. Please try again.</td></tr>`;
+                    console.error('fetchCandidates error:', err);
+                    // Show the offline banner so user knows data is safe
+                    showOfflineBanner();
+                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-5">
+                        <i class="fa-solid fa-server fa-2x text-danger mb-3 d-block"></i>
+                        <div class="fw-bold text-danger mb-1">Cannot reach server</div>
+                        <div class="text-secondary small mb-3">Your candidate data is safely stored in the database.<br>Please reload the page to reconnect.</div>
+                        <button class="btn btn-primary btn-sm rounded-pill px-4" onclick="fetchCandidates()">
+                            <i class="fa-solid fa-arrows-rotate me-2"></i>Retry
+                        </button>
+                    </td></tr>`;
+                    // Auto-retry after 5 seconds
+                    setTimeout(() => {
+                        if (document.getElementById('server_offline_banner').style.display !== 'none') {
+                            fetchCandidates();
+                        }
+                    }, 5000);
                 });
         }
 
